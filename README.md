@@ -5,7 +5,7 @@
 ## Expamle
 execute a serial of  commands:
 ```go
-import "github.com/crsgyj/excutor"
+import "github.com/crsgyj/cmd_excutor"
 
 func main() {
   var (
