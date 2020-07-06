@@ -6,7 +6,7 @@ import (
   "log"
 )
 
-type commandHandler struct {
+type exor struct {
   list        []Command
   initialized bool
   async       bool
@@ -14,7 +14,7 @@ type commandHandler struct {
   closeChan   chan bool
 }
 
-func (h *commandHandler) loopCheckingResult() {
+func (h *exor) loopCheckingResult() {
   var n = 0
   for {
     select {
@@ -28,7 +28,8 @@ func (h *commandHandler) loopCheckingResult() {
   }
 }
 
-func (h *commandHandler) Run() error {
+
+func (h *exor) Run() error {
   var (
     err   error
     count int = len(h.list)
@@ -49,7 +50,7 @@ func (h *commandHandler) Run() error {
       }()
     } else {
       if err = command.Exec(); !command.AllowError && err != nil {
-        err = errors.New(fmt.Sprintf("Break up by command[%d]: %s, %s", i, command.Name, err.Error()))
+        err = errors.New(fmt.Sprintf("[STOP](%d): %s, err: %s", i, command.Name, err.Error()))
         goto ERR
       } else {
         h.resultChan <- command
@@ -65,8 +66,8 @@ ERR:
   return err
 }
 
-// init commandHandler
-func (h commandHandler) Init() error {
+// init exor
+func (h exor) Init() error {
   var (
     err     error
     payload = make(map[string]interface{})

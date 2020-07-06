@@ -1,139 +1,159 @@
 package executor
 
 import (
-	"fmt"
-	"log"
-	"time"
+  "fmt"
+  "log"
+  "strings"
+  "time"
 )
 
-type commandContext interface {
-	SetState(key string, value interface{})
-	GetState(key string) interface{}
-	Abandon()
+type CmdController struct {
+  cmd *Command
 }
 
+type ProcessHandler = func(m *CmdController)
+
+// Command 命令
 type Command struct {
-	// 任务名
-	Name string
-	// 命令
-	Code string
-	// 描述
-	Desc string
-	// 执行环境
-	Session func() (Session, error)
-	// 是否允许错误 - 异步执行不关心错误
-	AllowError bool
-	// 是否异步执行
-	Async bool
-	// 是否完成
-	completed bool
-	// 初始化钩子
-	Init func(t commandContext)
-	// 完成钩子
-	Done func(t commandContext)
-	// 是否打印log
-	Logging bool
-	// 延迟执行，单位毫秒， 100毫秒以下设置无效
-	Delay int // Delay - run after ${delay} millisecond, ignore when < 100
-	// payload
-	payload *map[string]interface{}
-	// 是否放弃执行
-	abandon bool
-	// 输出内容
-	output string
-	// 错误内容
-	errMsg string
-	// 任务序号
-	index int
-}
-// Check
-func (t *Command) Inspect() (err error) {
-	if t.Code == "" {
-		t.Abandon()
-		err = fmt.Errorf("Abandon Command \"%s\" for missing \"Code\" attr.\n",  t.Name)
-		return
-	}
-	if t.Session == nil {
-		t.Abandon()
-		err = fmt.Errorf("Abandon Command \"%s\" for missing \"Session\" attr.\n", t.Name)
-		return
-	}
-	return
+  // 任务名
+  Name string
+  // 命令
+  Code string
+  // 描述
+  Desc string
+  // 执行环境
+  Session func() (Session, error)
+  // 是否允许错误 - 异步执行不关心错误
+  AllowError bool
+  // 是否异步执行
+  Async bool
+  // 是否完成
+  completed bool
+  // 初始化钩子
+  Init ProcessHandler
+  // 完成钩子
+  Done ProcessHandler
+  // 是否打印log
+  Logging bool
+  // 延迟执行，单位毫秒， 100毫秒以下设置无效
+  Delay int // Delay - run after ${delay} millisecond, ignore when < 100
+  // payload
+  payload *map[string]interface{}
+  // 是否放弃执行
+  abandon bool
+  // 输出内容
+  output string
+  // 错误内容
+  errMsg string
+  // 任务序号
+  index int
 }
 
 
-// SetState - set payload state
-func (t *Command) SetState(key string, value interface{}) {
-	payload := *(t.payload)
-	payload[key] = value
+
+func (c *CmdController) SetDelay(n int) {
+  c.cmd.Delay = n
 }
 
-// GetState - set payload state
-func (t *Command) GetState(key string) interface{} {
-	payload := *(t.payload)
-	return payload[key]
+func (c *CmdController) SetCode(code string) {
+  c.cmd.Code = code
 }
 
-// Abandon - abandon task
-func (t *Command) Abandon() {
-	t.abandon = true
+// ReplaceCode
+func (c *CmdController) ReplaceCode(old string, new string, n int) {
+  c.cmd.Code = strings.Replace(c.cmd.Code, old, new, n)
 }
 
-func (t *Command) Exec() error {
-	var (
-		err       error
-		session   Session
-		beginTime = time.Now().UnixNano() / 1e6
-	)
-	// initialize
-	if t.Init != nil {
-		t.Init(t)
-	}
-	// abandon
-	if t.abandon {
-		goto ABANDON
-	}
-	log.Printf("[Executing%v]: %s, code: \"%s\"\n", t.index, t.Name, t.Code)
-	// delay task if require
-	if t.Delay >= 100 {
-		<-time.After(time.Duration(t.Delay) * time.Millisecond)
-	}
-	// create session
-	if session, err = t.Session(); err != nil {
-		goto ERR
-	}
-	// exec command
-	if err = session.Run(t.Code); err != nil {
-		goto ERR
-	}
-	goto OK
+// SetState
+func (c *CmdController) SetState(key string, value interface{}) {
+  payload := *(c.cmd.payload)
+  payload[key] = value
+}
+
+// GetState
+func (c *CmdController) GetState(key string) interface{} {
+  payload := *(c.cmd.payload)
+  return payload[key]
+}
+
+// Abandon
+func (c *CmdController) Abandon() {
+  c.cmd.abandon = true
+}
+// GetOutput - get command Output
+func (c *CmdController) GetOutput() string {
+  return c.cmd.output
+}
+
+// Inspect - inspect if command is valid
+func (c *Command) Inspect() (err error) {
+  if c.Code == "" {
+    c.abandon = true
+    err = fmt.Errorf("Abandon Command \"%s\" for missing \"Code\" attr.\n", c.Name)
+    return
+  }
+  if c.Session == nil {
+    c.abandon = true
+    err = fmt.Errorf("Abandon Command \"%s\" for missing \"Session\" attr.\n", c.Name)
+    return
+  }
+  return
+}
+
+func (c *Command) Exec() error {
+  var (
+    err       error
+    session   Session
+    beginTime = time.Now().UnixNano() / 1e6
+  )
+  // initialize
+  if c.Init != nil {
+    c.Init(&CmdController{c})
+  }
+  // abandon
+  if c.abandon {
+    goto ABANDON
+  }
+  log.Printf("[START](%d): %s, code: \"%s\"\n", c.index, c.Name, c.Code)
+  // delay task if require
+  if c.Delay >= 100 {
+    <-time.After(time.Duration(c.Delay) * time.Millisecond)
+  }
+  // create session
+  if session, err = c.Session(); err != nil {
+    goto ERR
+  }
+  // exec command
+  if err = session.Run(c.Code); err != nil {
+    goto ERR
+  }
+  goto OK
 
 ABANDON:
-	log.Printf("[Abandon%d]: %s, code: \"%s\".\n", t.index, t.Name, t.Code)
-	return nil
+  log.Printf("[DROP](%d): %s", c.index, c.Name)
+  return nil
 ERR:
-
-	if session == nil {
-		fmt.Println("Session create fail.", err.Error())
-	} else {
-		t.output = session.Output()
-		t.errMsg = session.ErrMsg()
-	}
-	if t.Logging {
-		fmt.Printf("%s %s\n", t.output, t.errMsg)
-	}
-	log.Printf("[Task%d]: %s  X (%dms)\n", t.index, t.Name, time.Now().UnixNano()/1e6-beginTime)
-	return err
+  if session == nil {
+    log.Printf("[LOG](%d): Session create fail.%s\n", c.index, err.Error())
+  } else {
+    c.output = session.Output()
+    c.errMsg = session.ErrMsg()
+  }
+  if c.Logging {
+    fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
+  }
+  log.Printf("[DONE](%d): %s  X (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
+  return err
 OK:
-	t.output = session.Output()
-	t.errMsg = session.ErrMsg()
-	if t.Logging {
-		fmt.Printf("%s %s\n", t.output, t.errMsg)
-	}
-	log.Printf("[Task%d]: %s  √ (%dms)\n", t.index, t.Name, time.Now().UnixNano()/1e6-beginTime)
-	t.completed = true
-	if t.Done != nil {
-		t.Done(t)
-	}
-	return nil
+  c.output = session.Output()
+  c.errMsg = session.ErrMsg()
+  if c.Logging {
+    fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
+  }
+  log.Printf("[DONE](%d): %s  √ (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
+  c.completed = true
+  if c.Done != nil {
+    c.Done(&CmdController{c})
+  }
+  return nil
 }

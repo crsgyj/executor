@@ -6,8 +6,8 @@ type Executor interface {
 }
 
 type ExecCreator struct {
-  IsRemote bool
-  session  func() (Session, error)
+  //IsRemote bool
+  session func() (Session, error)
 }
 
 type CmdSample struct {
@@ -26,7 +26,7 @@ var Sessions = struct {
 }
 
 func New(cmdList []Command, async bool) (Executor, error) {
-  h := &commandHandler{
+  h := &exor{
     list:       cmdList,
     resultChan: make(chan *Command),
     closeChan:  make(chan bool, 1),
@@ -41,8 +41,8 @@ func New(cmdList []Command, async bool) (Executor, error) {
 
 func Local() *ExecCreator {
   creator := &ExecCreator{
-    IsRemote: false,
-    session:  Sessions.Local(),
+    //IsRemote: false,
+    session: Sessions.Local(),
   }
 
   return creator
@@ -50,8 +50,8 @@ func Local() *ExecCreator {
 
 func Remote(config SessionConfig) *ExecCreator {
   creator := &ExecCreator{
-    IsRemote: true,
-    session:  Sessions.Remote(config),
+    //IsRemote: true,
+    session: Sessions.Remote(config),
   }
 
   return creator
@@ -59,9 +59,9 @@ func Remote(config SessionConfig) *ExecCreator {
 
 func (e *ExecCreator) Default(commandLines []CmdSample) (Executor, error) {
   var (
-    list     []Command       = []Command{}
-    async    bool            = e.IsRemote
-    executor *commandHandler = &commandHandler{
+    list     []Command = []Command{}
+    async    bool      = false
+    executor *exor     = &exor{
       list:       nil,
       resultChan: make(chan *Command),
       closeChan:  make(chan bool, 1),

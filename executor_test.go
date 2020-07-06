@@ -1,6 +1,7 @@
 package executor
 
 import (
+  "log"
   "testing"
 )
 
@@ -60,6 +61,7 @@ func TestRemote(t *testing.T) {
     return
   }
   if err := s.Run(); err == nil {
+    log.Print(err)
     t.Fail()
     return
   }
