@@ -1,4 +1,4 @@
-module github.com/crsgyj/opst/v1
+module github.com/crsgyj/opst
 
 go 1.13
 
