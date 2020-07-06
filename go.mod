@@ -1,4 +1,4 @@
-module github.com/crsgyj/opst
+module github.com/crsgyj/executor
 
 go 1.13
 

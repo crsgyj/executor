@@ -1,4 +1,4 @@
-package opst
+package executor
 
 import (
 	"bytes"
@@ -41,14 +41,6 @@ type remoteSession struct {
 	errBuf  *bytes.Buffer
 }
 
-var TerminalSessions = struct {
-	Remote func(config SessionConfig) func() (Session, error)
-	Local  func() func() (Session, error)
-}{
-	Remote: newRemoteSession,
-	Local:  newLocalSession,
-}
-
 func newRemoteSession(config SessionConfig) func() (Session, error) {
 	return func() (Session, error) {
 		r := remoteSession{
@@ -73,7 +65,6 @@ func newLocalSession() func() (Session, error) {
 			msgBuf: &bytes.Buffer{},
 			errBuf: &bytes.Buffer{},
 		}
-
 		r.cmd.Stdout = r.msgBuf
 		r.cmd.Stderr = r.errBuf
 		return r, nil
@@ -82,16 +73,16 @@ func newLocalSession() func() (Session, error) {
 
 func (r localSession) Run(command string) error {
 	args := strings.Split(strings.TrimSpace(command), " ")
-	for i, _ := range args {
+	for i := range args {
 		args[i] = strings.TrimSpace(args[i])
 	}
 	r.cmd.Path = args[0]
 	r.cmd.Args = args
-	err := r.cmd.Run()
-	if err != nil {
+	if err := r.cmd.Run(); err != nil {
 		r.errBuf.WriteString(err.Error())
+		return err
 	}
-	return err
+	return nil
 }
 func (r localSession) Close() error {
 	return nil
@@ -137,7 +128,7 @@ func sshConnect(host string, port int8, user, password string, timeout int) (*ss
 	auth = make([]ssh.AuthMethod, 0)
 	auth = append(auth, ssh.Password(password))
 
-	hostKeyCallbk := func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	hostKeyCb := func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		return nil
 	}
 
@@ -145,7 +136,7 @@ func sshConnect(host string, port int8, user, password string, timeout int) (*ss
 		User:            user,
 		Auth:            auth,
 		Timeout:         time.Duration(timeout) * time.Second,
-		HostKeyCallback: hostKeyCallbk,
+		HostKeyCallback: hostKeyCb,
 	}
 
 	addr = fmt.Sprintf("%s:%d", host, port)

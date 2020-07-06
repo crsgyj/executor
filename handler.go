@@ -1,109 +1,105 @@
-package opst
+package executor
 
 import (
-	"errors"
-	"fmt"
-	"log"
+  "errors"
+  "fmt"
+  "log"
 )
 
-type handlerConfig struct {
-	optsType      string
-	sessionConfig SessionConfig
+type commandHandler struct {
+  list        []Command
+  initialized bool
+  async       bool
+  resultChan  chan *Command
+  closeChan   chan bool
 }
 
-type taskHandler struct {
-	list        []Task
-	Initialized bool
-	async       bool
-	resultChan  chan *Task
-	closeChan   chan bool
-	config      handlerConfig
+func (h *commandHandler) loopCheckingResult() {
+  var n = 0
+  for {
+    select {
+    case <-h.resultChan:
+      n++
+      if n >= len(h.list) {
+        h.closeChan <- true
+        break
+      }
+    }
+  }
 }
 
-func (h *taskHandler) Default(commands []string) Opst {
-	return h
-}
-
-func (h *taskHandler) loopCheckingResult() {
-	var n = 0
-	for {
-		select {
-		case <-h.resultChan:
-			n++
-			if n >= len(h.list) {
-				h.closeChan <- true
-				break
-			}
-		}
-	}
-}
-
-func (h *taskHandler) Run() error {
-	var (
-		err error
-	)
-	if !h.Initialized {
-		if err = h.Init(); err != nil {
-			goto ERR
-		}
-	}
-	log.Printf("[.Start]=> %d tasks in all.\n", len(h.list))
-	go h.loopCheckingResult()
-	for i := range h.list {
-		task := &h.list[i]
-		if task.Async {
-			go func() {
-				task.Exec()
-				h.resultChan <- task
-			}()
-		} else {
-			if err = task.Exec(); !task.AllowError && err != nil {
-				err = errors.New("[..Stop]=> " + err.Error())
-				goto ERR
-			} else {
-				h.resultChan <- task
-			}
-		}
-	}
-	<-h.closeChan
-	log.Println("[Finish]=> All works are done.")
-	return nil
+func (h *commandHandler) Run() error {
+  var (
+    err   error
+    count int = len(h.list)
+  )
+  if !h.initialized {
+    if err = h.Init(); err != nil {
+      goto ERR
+    }
+  }
+  logStart(count)
+  go h.loopCheckingResult()
+  for i := range h.list {
+    command := &h.list[i]
+    if command.Async {
+      go func() {
+        command.Exec()
+        h.resultChan <- command
+      }()
+    } else {
+      if err = command.Exec(); !command.AllowError && err != nil {
+        err = errors.New(fmt.Sprintf("Break up by command[%d]: %s, %s", i, command.Name, err.Error()))
+        goto ERR
+      } else {
+        h.resultChan <- command
+      }
+    }
+  }
+  <-h.closeChan
+  logDone()
+  return nil
 ERR:
-	log.Println(err.Error())
-	h.closeChan <- true
-	return err
+  log.Println(err.Error())
+  h.closeChan <- true
+  return err
 }
 
-// init taskHandler
-func (h taskHandler) Init() error {
-	var (
-		err     error
-		payload = make(map[string]interface{})
-	)
-	for i := range h.list {
-		task := &h.list[i]
-		// Abandon Empty Task
-		if task.Command == "" {
-			task.Abandon()
-			err = fmt.Errorf("Abandon Task[%v] \"%s\" for missing \"Command\" attr.\n", string(i), task.Name)
-			goto ERR
-		}
-		if task.Session == nil {
-			task.Abandon()
-			err = fmt.Errorf("Abandon Task[%v] \"%s\" for missing \"Session\" attr.\n", i, task.Name)
-			goto ERR
-		}
-		if h.async {
-			task.Async = true
-		}
-		if task.Async {
-			task.Logging = true
-		}
-		task.payload = &payload
-		task.index = i
-	}
-	h.Initialized = true
-	return nil
+// init commandHandler
+func (h commandHandler) Init() error {
+  var (
+    err     error
+    payload = make(map[string]interface{})
+  )
+  for i := range h.list {
+    c := &h.list[i]
+    // Abandon Empty Task
+    if err = c.Inspect(); err != nil {
+      goto ERR
+    }
+    if h.async {
+      c.Async = true
+    }
+    if c.Async {
+      c.Logging = false
+    }
+    c.payload = &payload
+    c.index = i
+  }
+  h.initialized = true
+  return nil
 ERR:
-	return errors.New("Init error: " + err.Error())
+  return errors.New("Init error: " + err.Error())
+}
+
+func logStart(count int) {
+  if count > 1 {
+    log.Printf("Start. with %d commands in all.\n", count)
+  } else {
+    log.Printf("Start. with %d command in all.\n", count)
+  }
+}
+
+func logDone() {
+  log.Println("All works are done.\n --------------------------------\n ")
 }
