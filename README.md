@@ -43,45 +43,45 @@ func main() {
   var (
     err error
     exor Excutor
-    commands []executor.Command
-    async bool          = false
+    async   bool  = false
   )
-  commands = = []executor.Command{
-       executor.Command{
-         Name: "Hello_Docker",
-         Code: "docker run -d --name helloworld hello-world",
-         Logging: true,
-         done: func(c *executor.CmdController) {
-            var (
-              output = c.GetOutPut()
-              containerID = ""      
-            )
-            reg, _ = regexp.Compile("([a-z0-9]64)\n")
-            keys := reg.FindAllStringSubmatch(output, -1)
-            if len(keys) >= 1 && len(keys[0]) >= 2 {
-                containerID = keys[0][1]
-            }
-            t.payload["containerID"] = oldImageID
-            return t  
-         }
-       },
-       executor.Command{
-         Name: "Remove Helloworld Container",
-         Code: "docker rm $containerID",
-         init: func (c *executor.CmdController) {
-            var (
-              containerID = c.GetState("containerID")
-            )
-            if containerID == nil {
-               c.Abandon()
-               return        
-            }
-            c.ReplaceCode("$containerID", containerID.(string))
-            return
-         },
-         Logging: true,
-       },
-     }
+  commands := []executor.Command{
+    executor.Command{
+      Name:       "创建helloworld容器",
+      Code:       "docker run -tid --name=helloworld hello-world",
+      Session:    executor.Sessions.Local(),
+      AllowError: true,
+      Done: func(c *executor.CmdController) {
+        var (
+          output      = c.GetOutput()
+          containerID = ""
+        )
+        reg, _ := regexp.Compile("([a-z0-9]{64})")
+        keys := reg.FindAllStringSubmatch(output, -1)
+        if len(keys) >= 1 && len(keys[0]) >= 2 {
+          containerID = keys[0][1]
+        }
+        c.SetState("containerID", containerID)
+      },
+    },
+    executor.Command{
+      Name:       "移除容器",
+      Code:       "docker rm $container",
+      Session:    executor.Sessions.Local(),
+      AllowError: false,
+      Logging:    true,
+      Init: func(c *executor.CmdController) {
+        var (
+          containerID = c.GetState("containerID")
+        )
+        if containerID == nil {
+          c.Abandon()
+          return
+        }
+        c.ReplaceCode("$container", containerID.(string), -1)
+      },
+    },
+  }
   if exor, err = excutor.New(commands, async) {
     panic(err)
   }
