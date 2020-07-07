@@ -22,7 +22,7 @@ type Command struct {
   // 描述
   Desc string
   // 执行环境
-  Session func() (Session, error)
+  Session func() (execSession, error)
   // 是否允许错误 - 异步执行不关心错误
   AllowError bool
   // 是否异步执行
@@ -103,7 +103,7 @@ func (c *Command) Inspect() (err error) {
 func (c *Command) Exec() error {
   var (
     err       error
-    session   Session
+    session   execSession
     beginTime = time.Now().UnixNano() / 1e6
   )
   log.Printf("[START](%d): %s, code: \"%s\"\n", c.index, c.Name, c.Code)

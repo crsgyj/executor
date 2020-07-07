@@ -5,9 +5,10 @@ type Executor interface {
   Init() error
 }
 
+
 type ExecCreator struct {
   //IsRemote bool
-  session func() (Session, error)
+  session execSessionBuilder
 }
 
 type CmdSample struct {
@@ -18,8 +19,8 @@ type CmdSample struct {
 }
 
 var Sessions = struct {
-  Remote func(config SessionConfig) func() (Session, error)
-  Local  func() func() (Session, error)
+  Remote func(config SessionConfig) execSessionBuilder
+  Local  func() execSessionBuilder
 }{
   Remote: newRemoteSession,
   Local:  newLocalSession,

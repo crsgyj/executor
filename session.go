@@ -15,7 +15,9 @@ import (
 	"os/exec"
 )
 
-type Session interface {
+type execSessionBuilder = func() (execSession, error)
+
+type execSession interface {
 	Run(cmd string) error
 	Close() error
 	Output() string
@@ -42,8 +44,8 @@ type remoteSession struct {
 	errBuf  *bytes.Buffer
 }
 
-func newRemoteSession(config SessionConfig) func() (Session, error) {
-	return func() (Session, error) {
+func newRemoteSession(config SessionConfig) execSessionBuilder {
+	return func() (execSession, error) {
 		r := remoteSession{
 			msgBuf: &bytes.Buffer{},
 			errBuf: &bytes.Buffer{},
@@ -59,8 +61,8 @@ func newRemoteSession(config SessionConfig) func() (Session, error) {
 	}
 }
 
-func newLocalSession() func() (Session, error) {
-	return func() (Session, error) {
+func newLocalSession() execSessionBuilder {
+	return func() (execSession, error) {
 		r := localSession{
 			cmd:    &exec.Cmd{},
 			msgBuf: &bytes.Buffer{},
