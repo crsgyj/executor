@@ -52,15 +52,26 @@ type Command struct {
 
 
 func (c *CmdController) SetDelay(n int) {
+  if c.cmd.completed {
+    return
+  }
   c.cmd.Delay = n
 }
 
 func (c *CmdController) SetCode(code string) {
+  if c.cmd.completed {
+    fmt.Println("Can not SetCode, command is completed.")
+    return
+  }
   c.cmd.Code = code
 }
 
 // ReplaceCode
 func (c *CmdController) ReplaceCode(old string, new string, n int) {
+  if c.cmd.completed {
+    fmt.Println("Can not ReplaceCode, command is completed.")
+    return
+  }
   c.cmd.Code = strings.Replace(c.cmd.Code, old, new, n)
 }
 
@@ -78,10 +89,17 @@ func (c *CmdController) GetState(key string) interface{} {
 
 // Abandon
 func (c *CmdController) Abandon() {
+  if c.cmd.completed {
+    fmt.Println("Can not Abandon, command is completed.")
+    return
+  }
   c.cmd.abandon = true
 }
 // GetOutput - get command Output
 func (c *CmdController) GetOutput() string {
+  if !c.cmd.completed {
+    return ""
+  }
   return c.cmd.output + c.cmd.errMsg
 }
 
@@ -106,14 +124,17 @@ func (c *Command) Exec() error {
     session   execSession
     beginTime = time.Now().UnixNano() / 1e6
   )
-  log.Printf("[START](%d): %s, code: \"%s\"\n", c.index, c.Name, c.Code)
+
   // initialize
   if c.Init != nil {
+    log.Printf("[INIT](%d): %s\n", c.index, c.Name)
     c.Init(&CmdController{c})
   }
   // abandon
   if c.abandon {
     goto ABANDON
+  } else {
+    log.Printf("[START](%d): %s, code: \"%s\"\n", c.index, c.Name, c.Code)
   }
   // delay task if require
   if c.Delay >= 100 {
@@ -142,12 +163,13 @@ ERR:
   if c.Logging {
     fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
   }
-  log.Printf("[DONE](%d): %s  X (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
   if c.AllowError {
     if c.Done != nil {
+      log.Printf("[DONE](%d): %s\n", c.index, c.Name)
       c.Done(&CmdController{c})
     }
   }
+  log.Printf("[END](%d): %s  X (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
   return err
 OK:
   c.output = session.Output()
@@ -155,7 +177,7 @@ OK:
   if c.Logging {
     fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
   }
-  log.Printf("[DONE](%d): %s  √ (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
+  log.Printf("[END](%d): %s  √ (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
   c.completed = true
   if c.Done != nil {
     c.Done(&CmdController{c})
