@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"time"
+	"unicode"
 
 	//"os"
 	"strings"
@@ -72,10 +73,7 @@ func newLocalSession() func() (Session, error) {
 }
 
 func (r localSession) Run(command string) error {
-	args := strings.Split(strings.TrimSpace(command), " ")
-	for i := range args {
-		args[i] = strings.TrimSpace(args[i])
-	}
+	args := strings.FieldsFunc(command, unicode.IsSpace)
 	r.cmd.Path = args[0]
 	r.cmd.Args = args
 	if err := r.cmd.Run(); err != nil {
