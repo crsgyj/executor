@@ -11,20 +11,20 @@ func main() {
   var (
     err error
     exor Excutor
-    commands []CmdSample = []CmdSample{
-      CmdSample{
-        Name: "Hello_Docker",
-        Code: "docker run -d --name helloworld helloworld",
-        Logging: true,
-      },
-      CmdSample{
-        Name: "Remove_Container",
-        Code: "docker rm helloworld",
-        Logging: true,
-      },
-    }
     async bool          = false
   )
+  commands []CmdSample := []CmdSample{
+    CmdSample{
+      Name: "创建helloworld容器",
+      Code: "docker run -d --name helloworld hello-world",
+      Logging: true,
+    },
+    CmdSample{
+      Name: "移除容器",
+      Code: "docker rm helloworld",
+      Logging: true,
+    },
+  }
   if exor, err = excutor.Local().Default(commands, async) {
     panic(err)
   }
