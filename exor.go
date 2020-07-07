@@ -74,6 +74,9 @@ func (h exor) Init() error {
   )
   for i := range h.list {
     c := &h.list[i]
+    if c.Name == "" {
+      c.Name = fmt.Sprintf("Command%d", i)
+    }
     // Abandon Empty Task
     if err = c.Inspect(); err != nil {
       goto ERR
@@ -84,6 +87,7 @@ func (h exor) Init() error {
     if c.Async {
       c.Logging = false
     }
+
     c.payload = &payload
     c.index = i
   }
