@@ -49,14 +49,14 @@ func main() {
   commands = = []executor.Command{
        executor.Command{
          Name: "Hello_Docker",
-         Code: "docker run -d --name helloworld helloworld",
+         Code: "docker run -d --name helloworld hello-world",
          Logging: true,
          done: func(c *executor.CmdController) {
             var (
               output = c.GetOutPut()
               containerID = ""      
             )
-            reg, _ = regexp.Compile("sha256:(\\w+)")
+            reg, _ = regexp.Compile("([a-z0-9]64)\n")
             keys := reg.FindAllStringSubmatch(output, -1)
             if len(keys) >= 1 && len(keys[0]) >= 2 {
                 containerID = keys[0][1]

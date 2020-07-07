@@ -143,6 +143,11 @@ ERR:
     fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
   }
   log.Printf("[DONE](%d): %s  X (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
+  if c.AllowError {
+    if c.Done != nil {
+      c.Done(&CmdController{c})
+    }
+  }
   return err
 OK:
   c.output = session.Output()
