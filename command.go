@@ -82,7 +82,7 @@ func (c *CmdController) Abandon() {
 }
 // GetOutput - get command Output
 func (c *CmdController) GetOutput() string {
-  return c.cmd.output
+  return c.cmd.output + c.cmd.errMsg
 }
 
 // Inspect - inspect if command is valid
@@ -106,6 +106,7 @@ func (c *Command) Exec() error {
     session   Session
     beginTime = time.Now().UnixNano() / 1e6
   )
+  log.Printf("[START](%d): %s, code: \"%s\"\n", c.index, c.Name, c.Code)
   // initialize
   if c.Init != nil {
     c.Init(&CmdController{c})
@@ -114,7 +115,6 @@ func (c *Command) Exec() error {
   if c.abandon {
     goto ABANDON
   }
-  log.Printf("[START](%d): %s, code: \"%s\"\n", c.index, c.Name, c.Code)
   // delay task if require
   if c.Delay >= 100 {
     <-time.After(time.Duration(c.Delay) * time.Millisecond)
@@ -136,8 +136,8 @@ ERR:
   if session == nil {
     log.Printf("[LOG](%d): Session create fail.%s\n", c.index, err.Error())
   } else {
-    c.output = session.Output()
     c.errMsg = session.ErrMsg()
+    c.output = session.Output()
   }
   if c.Logging {
     fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
