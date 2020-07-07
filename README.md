@@ -74,7 +74,7 @@ func main() {
         var (
           containerID = c.GetState("containerID")
         )
-        if containerID == nil {
+        if containerID == nil || containerID == "" {
           c.Abandon()
           return
         }
