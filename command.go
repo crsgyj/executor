@@ -154,6 +154,7 @@ ABANDON:
   log.Printf("[DROP](%d): %s", c.index, c.Name)
   return nil
 ERR:
+  c.completed = true
   if session == nil {
     log.Printf("[LOG](%d): Session create fail.%s\n", c.index, err.Error())
   } else {
@@ -172,13 +173,13 @@ ERR:
   log.Printf("[END](%d): %s  X (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
   return err
 OK:
+  c.completed = true
   c.output = session.Output()
   c.errMsg = session.ErrMsg()
   if c.Logging {
     fmt.Printf("[LOG](%d): %s %s\n", c.index, c.output, c.errMsg)
   }
   log.Printf("[END](%d): %s  √ (%dms)\n", c.index, c.Name, time.Now().UnixNano()/1e6-beginTime)
-  c.completed = true
   if c.Done != nil {
     c.Done(&CmdController{c})
   }
