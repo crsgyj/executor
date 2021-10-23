@@ -34,7 +34,7 @@ func main() {
   }
 }
 ```
-or do it in depth:
+or do it like this:
 
 ```go
 import "github.com/crsgyj/executor"
