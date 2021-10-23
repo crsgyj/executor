@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	//"github.com/spf13/cobra/cobra/cmd"
-	"golang.org/x/crypto/ssh"
 	"net"
 	"os/exec"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type execSessionBuilder = func() (execSession, error)
@@ -76,7 +77,8 @@ func newLocalSession() execSessionBuilder {
 
 func (r localSession) Run(command string) error {
 	args := strings.FieldsFunc(command, unicode.IsSpace)
-	r.cmd.Path = args[0]
+	path, _ := exec.LookPath(args[0])
+	r.cmd.Path = path
 	r.cmd.Args = args
 	if err := r.cmd.Run(); err != nil {
 		r.errBuf.WriteString(err.Error())
