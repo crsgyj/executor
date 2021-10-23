@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"time"
 	"unicode"
 
@@ -19,7 +20,7 @@ import (
 type execSessionBuilder = func() (execSession, error)
 
 type execSession interface {
-	Run(cmd string) error
+	Run(cmd string, env []string) error
 	Close() error
 	Output() string
 	ErrMsg() string
@@ -75,11 +76,15 @@ func newLocalSession() execSessionBuilder {
 	}
 }
 
-func (r localSession) Run(command string) error {
+func (r localSession) Run(command string, env []string) error {
 	args := strings.FieldsFunc(command, unicode.IsSpace)
 	path, _ := exec.LookPath(args[0])
 	r.cmd.Path = path
 	r.cmd.Args = args
+	if env != nil {
+		r.cmd.Env = env
+	}
+
 	if err := r.cmd.Run(); err != nil {
 		r.errBuf.WriteString(err.Error())
 		return err
@@ -96,8 +101,10 @@ func (r localSession) ErrMsg() string {
 	return r.errBuf.String()
 }
 
-func (r remoteSession) Run(command string) error {
-	err := r.session.Run(command)
+func (r remoteSession) Run(command string, env []string) error {
+	envSets := getEnvSets(env)
+
+	err := r.session.Run(envSets + command)
 	if err != nil {
 		r.errBuf.WriteString(err.Error())
 	}
@@ -151,4 +158,19 @@ func sshConnect(host string, port int8, user, password string, timeout int) (*ss
 		return nil, err
 	}
 	return session, nil
+}
+
+/// 获取env输出语句
+func getEnvSets(env []string) string {
+	if env == nil && len(env) == 0 {
+		return ""
+	}
+	str := ""
+	if runtime.GOOS == "windows" {
+		str += "set "
+	} else {
+		str += "export "
+	}
+	str += strings.Join(env, " ") + " && "
+	return str
 }
