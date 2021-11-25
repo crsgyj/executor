@@ -1,5 +1,5 @@
 # Executor
- A go package for the running of your local or remote(SSH) commands.
+run commands in your local or remote(SSH) session.
 
 
 ## Expamle
